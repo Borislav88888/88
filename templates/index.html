@@ -1,0 +1,3475 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Иерархический распознаватель команд</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, #1a1c20 0%, #2c3e50 100%);
+            min-height: 100vh;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e0e0e0;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+            height: 98vh;
+        }
+
+        .recognizers-container {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap; /* Позволяет блокам переноситься */
+            padding: 20px;
+            align-items: flex-start;
+        }
+
+        .speech-container {
+            position: relative;
+            background-color: #2d3436;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+            overflow: hidden;
+            border: 1px solid #3d4246;
+            height: 90vh;
+            resize: both; /* Разрешаем изменение размера */
+            overflow: auto;
+            margin: 10px;
+            cursor: move;
+        }
+
+        .speech-container.hidden {
+            display: none;
+        }
+
+        .commands-panel {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .commands-actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .commands-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            border: 1px solid #3d4246;
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 100px;
+            background-color: #2d3436;
+        }
+
+        .command-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #1a1c20;
+            border-radius: 6px;
+            margin: 5px 0;
+            border: 1px solid #3d4246;
+        }
+
+        .command-text {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .command-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        h1 {
+            color: #e0e0e0;
+            text-align: center;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        textarea {
+            width: 100%;
+            height: 60vh;
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #3d4246;
+            border-radius: 15px;
+            font-size: 16px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+            flex-grow: 1;
+            min-height: 200px;
+            background-color: #1a1c20;
+            color: #e0e0e0;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            border: 2px solid #3d4246;
+            border-radius: 8px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 200px;
+            background-color: #1a1c20;
+            color: #e0e0e0;
+        }
+
+        button {
+            padding: 6px 12px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background-color: #2980b9;
+            color: white;
+            min-width: 80px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #3498db;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .toggle.active {
+            background-color: #e74c3c;
+        }
+
+        .chat-panel {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .chat-panel button {
+            white-space: nowrap;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            color: #95a5a6;
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        @media (max-width: 900px) {
+            .speech-container {
+                height: 85vh;
+            }
+            
+            textarea {
+                height: 50vh;
+            }
+        }
+
+        select {
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: white;
+        }
+
+        #speechToggle.active {
+            background-color: #2ecc71;
+        }
+
+        .speech-controls {
+            display: none;
+            align-items: center;
+            gap: 5px;
+            margin-left: 10px;
+            position: relative;
+            background: #1a1c20;
+            padding: 5px 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border: 1px solid #3d4246;
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: #2ecc71;
+            width: 0;
+            transition: width 0.1s linear;
+            border-radius: 0 0 8px 8px;
+            cursor: pointer;
+        }
+
+        .progress-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .progress-container:hover .progress-bar {
+            height: 4px;
+        }
+
+        .speech-controls:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .play-pause-button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            padding: 4px;
+            cursor: pointer;
+            color: #2c3e50;
+            min-width: auto;
+            transition: transform 0.2s;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.05);
+        }
+
+        .play-pause-button:hover {
+            transform: scale(1.1);
+            background: rgba(0,0,0,0.1);
+        }
+
+        .rate-slider {
+            width: 100px;
+            height: 4px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            background: #e0e0e0;
+            border-radius: 2px;
+            outline: none;
+            transition: height 0.2s ease;
+        }
+
+        .rate-slider:hover {
+            height: 6px;
+        }
+
+        .rate-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #2c3e50;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .rate-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .rate-value {
+            min-width: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #2c3e50;
+        }
+
+        .assistant-name-panel {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .assistant-name {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #e0e0e0;
+            cursor: pointer;
+            padding: 5px 15px;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+
+        .assistant-name:hover {
+            background-color: #1a1c20;
+        }
+
+        .assistant-name-input {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            width: 100%;
+            padding: 5px 15px;
+            border: 1px solid #3d4246;
+            border-radius: 8px;
+            background-color: #1a1c20;
+            color: #e0e0e0;
+        }
+
+        .message-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .send-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            padding: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            min-width: auto;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.05);
+        }
+
+        .send-button:hover {
+            transform: scale(1.1);
+            background: rgba(0,0,0,0.1);
+        }
+
+        .send-button.active {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+
+        .speech-toggle {
+            background: none;
+            border: none;
+            font-size: 24px;
+            padding: 8px;
+            cursor: pointer;
+            color: #95a5a6;
+            transition: all 0.3s ease;
+            min-width: auto;
+            position: relative;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.05);
+        }
+
+        .speech-toggle.active {
+            color: #2ecc71;
+            transform: scale(1.1);
+            background: rgba(46, 204, 113, 0.2);
+        }
+
+        .speech-toggle:hover {
+            transform: scale(1.1);
+            background: rgba(0,0,0,0.1);
+        }
+
+        .speech-toggle.playing::after {
+            content: '▶️';
+            position: absolute;
+            font-size: 12px;
+            bottom: 0;
+            right: 0;
+        }
+
+        .speech-toggle.paused::after {
+            content: '⏸️';
+            position: absolute;
+            font-size: 12px;
+            bottom: 0;
+            right: 0;
+        }
+
+        .mic-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            transition: background-color 0.3s;
+        }
+
+        .mic-indicator.active {
+            background-color: #2ecc71;
+        }
+
+        .speech-toggle.loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .history-button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            padding: 4px;
+            cursor: pointer;
+            color: #2c3e50;
+            min-width: auto;
+            transition: transform 0.2s;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.05);
+        }
+
+        .history-button:hover {
+            transform: scale(1.1);
+            background: rgba(0,0,0,0.1);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #2d3436;
+            margin: 10% auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            color: #e0e0e0;
+            border: 1px solid #3d4246;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .response-item {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #3d4246;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            background-color: #1a1c20;
+        }
+
+        .response-item:hover {
+            background-color: #2d3436;
+        }
+
+        .response-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .audio-progress {
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .time-display {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            position: relative;
+        }
+
+        .volume-button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            min-width: auto;
+        }
+
+        .volume-slider {
+            width: 0;
+            height: 4px;
+            transition: width 0.3s;
+            opacity: 0;
+            cursor: pointer;
+            -webkit-appearance: none;
+            background: #e0e0e0;
+            border-radius: 2px;
+        }
+
+        .volume-control:hover .volume-slider {
+            width: 80px;
+            opacity: 1;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #2c3e50;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Стили для новой панели управления */
+        .controls-panel {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #1a1c20;
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #3d4246;
+        }
+
+        .control-button {
+            background: none;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .control-button:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .control-button .icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-button svg {
+            width: 100%;
+            height: 100%;
+            fill: #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .slider {
+            width: 0;
+            height: 4px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #3d4246;
+            border-radius: 2px;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #3498db;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .control-item:hover .slider {
+            width: 100px;
+            opacity: 1;
+        }
+
+        .speed-slider-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            position: absolute;
+            right: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .speed-control:hover .speed-slider-container {
+            opacity: 1;
+            width: 140px;
+        }
+
+        .speed-value {
+            min-width: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #2c3e50;
+        }
+
+        .play-pause .play-icon,
+        .play-pause .pause-icon {
+            position: absolute;
+            transition: all 0.3s ease;
+        }
+
+        .play-pause .pause-icon {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .play-pause.playing .play-icon {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .play-pause.playing .pause-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .control-button.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .control-button.disabled:hover {
+            background: none;
+            transform: none;
+        }
+
+        /* Добавляем стили для кнопки переключения видимости */
+        .toggle-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 10;
+        }
+
+        .toggle-visibility {
+            background: none;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            color: #95a5a6;
+            transition: all 0.3s ease;
+            opacity: 0.5;
+            font-size: 16px;
+        }
+
+        .toggle-visibility::before {
+            content: '—';
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .speech-container.hidden .toggle-visibility::before {
+            content: '+';
+        }
+
+        .toggle-visibility:hover {
+            opacity: 1;
+            color: #e0e0e0;
+        }
+
+        .speech-container:hover .toggle-visibility {
+            opacity: 0.8;
+        }
+
+        /* Стили для панели задач */
+        .taskbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: #1a1c20;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border-bottom: 1px solid #3d4246;
+            z-index: 1000;
+        }
+
+        .taskbar.top {
+            top: 0;
+            bottom: auto;
+            border-top: none;
+            border-bottom: 1px solid #3d4246;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .taskbar.left, .taskbar.right {
+            width: 40px;
+            height: 100%;
+            flex-direction: column;
+        }
+
+        .taskbar.left {
+            border-right: 1px solid #3d4246;
+        }
+
+        .taskbar.right {
+            right: 0;
+            left: auto;
+            border-left: 1px solid #3d4246;
+        }
+
+        .taskbar-app {
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: rgba(255,255,255,0.05);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .taskbar-app:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .taskbar-app.active {
+            background: rgba(46, 204, 113, 0.2);
+        }
+
+        .taskbar-app.active::after {
+            content: '';
+            position: absolute;
+            bottom: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background: #2ecc71;
+            border-radius: 1px;
+        }
+
+        .taskbar-app-icon {
+            font-size: 20px;
+            color: #e0e0e0;
+        }
+
+        .taskbar-context-menu {
+            position: absolute;
+            background: #2d3436;
+            border: 1px solid #3d4246;
+            border-radius: 5px;
+            padding: 5px 0;
+            min-width: 150px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            display: none;
+        }
+
+        .taskbar-context-menu.show {
+            display: block;
+        }
+
+        .taskbar-context-menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            color: #e0e0e0;
+            transition: background 0.2s;
+        }
+
+        .taskbar-context-menu-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Стили для блока заметок */
+        .notes-container {
+            position: relative;
+            flex: 0 1 800px;
+            background-color: #2d3436;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            min-width: 280px;
+            max-width: 800px;
+            overflow: hidden;
+            border: 1px solid #3d4246;
+            height: 90vh;
+            transition: all 0.3s ease;
+        }
+
+        .notes-list {
+            flex: 1;
+            overflow-y: auto;
+            margin: 10px 0;
+            padding: 10px;
+            background: #1a1c20;
+            border-radius: 8px;
+            border: 1px solid #3d4246;
+        }
+
+        .note-item {
+            background: #2d3436;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #3d4246;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .note-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .note-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #e0e0e0;
+        }
+
+        .note-content {
+            color: #95a5a6;
+            font-size: 0.9em;
+        }
+
+        .note-editor {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .note-editor input,
+        .note-editor textarea {
+            background: #1a1c20;
+            border: 1px solid #3d4246;
+            padding: 10px;
+            border-radius: 8px;
+            color: #e0e0e0;
+        }
+
+        .note-editor textarea {
+            height: 150px;
+            resize: vertical;
+        }
+
+        /* Стили для блока Избранное */
+        .favorites-list {
+            flex: 1;
+            overflow-y: auto;
+            margin: 10px 0;
+            padding: 10px;
+            background: #1a1c20;
+            border-radius: 8px;
+            border: 1px solid #3d4246;
+        }
+
+        .favorite-item {
+            background: #2d3436;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #3d4246;
+            position: relative;
+        }
+
+        .favorite-source {
+            font-size: 0.8em;
+            color: #95a5a6;
+            margin-bottom: 5px;
+        }
+
+        .favorite-content {
+            color: #e0e0e0;
+            margin-bottom: 10px;
+        }
+
+        .favorite-date {
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+
+        .favorite-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .add-to-favorites {
+            font-size: 12px;
+            padding: 2px 5px;
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+
+        .add-to-favorites:hover {
+            background: rgba(46, 204, 113, 0.3);
+        }
+
+        /* Стили для радио плеера */
+        .radio-player {
+            position: fixed;
+            bottom: 60px;
+            left: 20px;
+            background: #1a1c20;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #3d4246;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            min-width: 300px;
+            z-index: 1000;
+        }
+
+        .radio-station {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .radio-station:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .radio-station.active {
+            background: rgba(46, 204, 113, 0.2);
+        }
+
+        .station-info {
+            flex: 1;
+        }
+
+        .station-name {
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+
+        .station-genre {
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+
+        /* Стили для часов и инструментов */
+        .clock-widget {
+            position: fixed;
+            top: 50px;
+            right: 20px;
+            background: #1a1c20;
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid #3d4246;
+            cursor: move; /* Указатель в виде перетаскивания */
+            z-index: 1000;
+            transition: all 0.3s ease;
+            user-select: none; /* Запрещаем выделение текста при перетаскивании */
+        }
+
+        .clock-widget:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .clock-display {
+            font-size: 24px;
+            color: #e0e0e0;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: bold;
+        }
+
+        .time-tools {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: #1a1c20;
+            border-radius: 12px;
+            border: 1px solid #3d4246;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            padding: 20px;
+            min-width: 300px;
+            z-index: 999;
+            display: none;
+        }
+
+        .time-tools.show {
+            display: block;
+        }
+
+        .time-tool {
+            padding: 15px;
+            border-bottom: 1px solid #3d4246;
+        }
+
+        .time-tool:last-child {
+            border-bottom: none;
+        }
+
+        .tool-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .tool-icon {
+            font-size: 20px;
+        }
+
+        .tool-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+
+        .stopwatch-display {
+            font-size: 32px;
+            text-align: center;
+            margin: 15px 0;
+            font-family: 'Montserrat', sans-serif;
+            color: #e0e0e0;
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        /* Стили для канбан-доски */
+        .kanban-container {
+            position: relative;
+            background-color: #2d3436;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+            overflow: hidden;
+            border: 1px solid #3d4246;
+            height: 90vh;
+            resize: both;
+        }
+
+        .kanban-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .kanban-board {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            flex: 1;
+        }
+
+        .kanban-column {
+            min-width: 300px;
+            background: #1a1c20;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #3d4246;
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #3d4246;
+        }
+
+        .column-title {
+            font-weight: bold;
+            color: #e0e0e0;
+            cursor: pointer;
+        }
+
+        .column-title:hover {
+            color: #3498db;
+        }
+
+        .task-count {
+            background: rgba(52, 152, 219, 0.2);
+            color: #3498db;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .kanban-task {
+            background: #2d3436;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: move;
+            border: 1px solid #3d4246;
+            transition: all 0.3s ease;
+        }
+
+        .kanban-task:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .task-title {
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+
+        .task-priority {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .priority-high {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+        }
+
+        .priority-medium {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+        }
+
+        .priority-low {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+
+        .task-description {
+            color: #95a5a6;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .task-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .task-actions button:hover {
+            opacity: 1;
+        }
+
+        .add-task-btn {
+            width: 100%;
+            padding: 10px;
+            background: rgba(52, 152, 219, 0.1);
+            border: 1px dashed #3498db;
+            color: #3498db;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .add-task-btn:hover {
+            background: rgba(52, 152, 219, 0.2);
+        }
+
+        .task-form {
+            background: #2d3436;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .task-form input,
+        .task-form textarea,
+        .task-form select {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #1a1c20;
+            border: 1px solid #3d4246;
+            border-radius: 4px;
+            color: #e0e0e0;
+        }
+
+        .task-form textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .column-title-input {
+            background: #1a1c20;
+            border: 1px solid #3d4246;
+            border-radius: 4px;
+            color: #e0e0e0;
+            padding: 4px 8px;
+            font-weight: bold;
+            width: 150px;
+        }
+
+        .alarm-item {
+            background: #2d3436;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #3d4246;
+        }
+
+        .alarm-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        .alarm-time {
+            font-size: 1.2em;
+            color: #e0e0e0;
+        }
+
+        .alarm-label {
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+
+        .alarm-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .alarm-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .alarm-toggle.active {
+            opacity: 1;
+            color: #2ecc71;
+        }
+
+        .alarm-delete {
+            background: none;
+            border: none;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .alarm-delete:hover {
+            opacity: 1;
+            color: #e74c3c;
+        }
+
+        .alarm-edit-form {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .alarm-time-input,
+        .alarm-label-input {
+            background: #1a1c20;
+            border: 1px solid #3d4246;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #e0e0e0;
+        }
+
+        .alarm-edit-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .stopwatch-display {
+            font-family: 'Montserrat', monospace;
+            font-size: 32px;
+            text-align: center;
+            margin: 15px 0;
+            color: #e0e0e0;
+            letter-spacing: 2px;
+        }
+
+        /* Стили для уведомлений */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notification {
+            background: #1a1c20;
+            color: #e0e0e0;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border: 1px solid #3d4246;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 300px;
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .notification:hover {
+            transform: translateX(-5px);
+            background: #2d3436;
+        }
+
+        .notification.success {
+            border-left: 4px solid #2ecc71;
+        }
+
+        .notification.error {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .notification.info {
+            border-left: 4px solid #3498db;
+        }
+
+        .notification-icon {
+            font-size: 20px;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .notification-message {
+            font-size: 0.9em;
+            color: #95a5a6;
+        }
+
+        .notification-close {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .notification-close:hover {
+            opacity: 1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .resizer {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 15px;
+            height: 15px;
+            cursor: se-resize;
+            background: rgba(255,255,255,0.1);
+            border-radius: 0 0 15px 0;
+        }
+
+        .toggle-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .toggle-visibility {
+            background: none;
+            border: none;
+            font-size: 20px;
+            padding: 4px;
+            cursor: pointer;
+            color: #2c3e50;
+            min-width: auto;
+            transition: transform 0.2s;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.05);
+        }
+
+        .toggle-visibility:hover {
+            transform: scale(1.1);
+            background: rgba(0,0,0,0.1);
+        }
+
+        .speech-container.collapsed .chat-panel,
+        .speech-container.collapsed .commands-panel,
+        .speech-container.collapsed textarea,
+        .speech-container.collapsed .status {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="recognizers-container">
+            <div class="speech-container">
+                <div class="toggle-container">
+                    <button class="toggle-visibility" onclick="toggleContainer(this)">🔄</button>
+                </div>
+                <h1>Диалог с GigaChat</h1>
+                <div class="assistant-name-panel" onclick="editAssistantName()">
+                    <span class="assistant-name" id="assistantNameDisplay">
+                        Помощник
+                    </span>
+                </div>
+                <div class="chat-panel">
+                    <div class="message-controls">
+                        <input type="text" id="chatMessage" placeholder="Введите сообщение..."
+                               onkeypress="if(event.key === 'Enter') sendMessage()">
+                        <button onclick="toggleRecognition()" class="send-button">
+                            <span id="recordButton">🎤</span>
+                        </button>
+                        <button onclick="sendMessage()" class="send-button">
+                            <span>📤</span>
+                        </button>
+                        <button onclick="toggleSpeechEnabled()" id="speechToggle" class="speech-toggle">
+                            🔈
+                        </button>
+                    </div>
+                    <div class="mic-indicator" id="micIndicator"></div>
+                    <div class="speech-controls" id="speechControls" style="display: none;">
+                        <div class="controls-panel">
+                            <button onclick="toggleSpeech()" class="control-button play-pause" title="Воспроизведение/Пауза">
+                                <span class="icon">
+                                    <svg class="play-icon" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                    <svg class="pause-icon" viewBox="0 0 24 24">
+                                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                                    </svg>
+                                </span>
+                            </button>
+                            
+                            <div class="audio-progress">
+                                <div class="time-display">0.0 / 0.0</div>
+                                <div class="progress-container">
+                                    <div class="progress-bar"></div>
+                                </div>
+                            </div>
+
+                            <div class="controls-group">
+                                <div class="control-item volume-control">
+                                    <button class="control-button volume" title="Громкость">
+                                        <span class="icon">
+                                            <svg viewBox="0 0 24 24">
+                                                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                    <input type="range" class="slider volume-slider" min="0" max="1" step="0.1" value="1">
+                                </div>
+
+                                <div class="control-item speed-control">
+                                    <button class="control-button speed" title="Скорость воспроизведения">
+                                        <span class="icon">
+                                            <svg viewBox="0 0 24 24">
+                                                <path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44zm-9.79 6.84a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                    <div class="speed-slider-container">
+                                        <input type="range" class="slider speed-slider" min="0.5" max="3" step="0.1" value="1.7">
+                                        <span class="speed-value">1.7x</span>
+                                    </div>
+                                </div>
+
+                                <button onclick="showResponseHistory()" class="control-button history" title="История ответов">
+                                    <span class="icon">
+                                        <svg viewBox="0 0 24 24">
+                                            <path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+                                        </svg>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <textarea id="chatOutput" placeholder="Здесь появятся сообщения..." readonly></textarea>
+                <div class="status" id="chatStatus"></div>
+            </div>
+
+            <div class="speech-container">
+                <div class="toggle-container">
+                    <button class="toggle-visibility" onclick="toggleContainer(this)">🔄</button>
+                </div>
+                <h1>Распознаватель (синхронный)</h1>
+                <div class="chat-panel">
+                    <button onclick="toggleRecognition()" class="send-button" id="recordButton">
+                        🎤
+                    </button>
+                    <button onclick="clearRecognition()">🗑️ Очистить</button>
+                    <div class="mic-indicator" id="micIndicator"></div>
+                </div>
+                <textarea id="output2" placeholder="Здесь появится распознанный текст..." readonly></textarea>
+                <div class="status" id="status2"></div>
+            </div>
+
+            <div class="speech-container">
+                <div class="toggle-container">
+                    <button class="toggle-visibility" onclick="toggleContainer(this)">🔄</button>
+                </div>
+                <h1>Анализатор команд</h1>
+                <div class="commands-panel">
+                    <input type="text" id="newCommand" placeholder="Введите новую команду..."
+                           onkeypress="if(event.key === 'Enter') addCommand()">
+                    <div class="commands-actions">
+                        <button onclick="addCommand()">➕ Добавить команду</button>
+                    </div>
+                </div>
+                <div class="commands-list" id="commandsList"></div>
+                <textarea id="output1" placeholder="Здесь появятся распознанные команды..." readonly></textarea>
+                <div class="status" id="status1"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="responseHistoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>История ответов</h2>
+                <button onclick="closeResponseHistory()" class="close-button">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="responseHistoryList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="taskbar" id="taskbar">
+        <div class="taskbar-app" data-app="chat" onclick="toggleApp('chat')" title="Диалог с GigaChat">
+            <span class="taskbar-app-icon">💬</span>
+        </div>
+        <div class="taskbar-app" data-app="recognition" onclick="toggleApp('recognition')" title="Распознаватель">
+            <span class="taskbar-app-icon">🎤</span>
+        </div>
+        <div class="taskbar-app" data-app="commands" onclick="toggleApp('commands')" title="Анализатор команд">
+            <span class="taskbar-app-icon">📝</span>
+        </div>
+        <div class="taskbar-app" data-app="notes" onclick="toggleApp('notes')" title="Заметки">
+            <span class="taskbar-app-icon">📝</span>
+        </div>
+        <div class="taskbar-app" data-app="favorites" onclick="toggleApp('favorites')" title="Избранное">
+            <span class="taskbar-app-icon">⭐</span>
+        </div>
+        <div class="taskbar-app" data-app="kanban" onclick="toggleApp('kanban')" title="Канбан">
+            <span class="taskbar-app-icon">📋</span>
+        </div>
+        <div class="taskbar-app" data-app="radio" onclick="toggleApp('radio')" title="Радио">
+            <span class="taskbar-app-icon">📻</span>
+        </div>
+        <div class="taskbar-app" data-app="clock" onclick="toggleClock()" title="Часы">
+            <span class="taskbar-app-icon">⏰</span>
+        </div>
+    </div>
+
+    <!-- Контекстное меню для панели задач -->
+    <div class="taskbar-context-menu" id="taskbarContextMenu">
+        <div class="taskbar-context-menu-item" onclick="moveTaskbar('top')">Сверху</div>
+        <div class="taskbar-context-menu-item" onclick="moveTaskbar('bottom')">Снизу</div>
+        <div class="taskbar-context-menu-item" onclick="moveTaskbar('left')">Слева</div>
+        <div class="taskbar-context-menu-item" onclick="moveTaskbar('right')">Справа</div>
+    </div>
+
+    <!-- Добавляем контейнер для заметок -->
+    <div class="speech-container" data-app="notes">
+        <div class="toggle-container">
+            <button class="toggle-visibility" onclick="toggleContainer(this)">🔄</button>
+        </div>
+        <h1>Заметки</h1>
+        <div class="note-editor">
+            <input type="text" id="noteTitle" placeholder="Заголовок заметки...">
+            <textarea id="noteContent" placeholder="Текст заметки..."></textarea>
+            <button onclick="addNote()">Добавить заметку</button>
+        </div>
+        <div class="notes-list" id="notesList">
+            <!-- Здесь будут отображаться заметки -->
+        </div>
+    </div>
+
+    <!-- Добавляем контейнер для Избранного -->
+    <div class="speech-container" data-app="favorites">
+        <div class="toggle-container">
+            <button class="toggle-visibility" onclick="toggleContainer(this)">🔄</button>
+        </div>
+        <h1>Избранное</h1>
+        <div class="favorites-list" id="favoritesList">
+            <!-- Здесь будут отображаться избранные сообщения -->
+        </div>
+    </div>
+
+    <!-- Добавляем радио плеер -->
+    <div class="radio-player" id="radioPlayer">
+        <div class="radio-stations">
+            <div class="radio-station" onclick="toggleRadio('record')">
+                <button class="play-button">▶️</button>
+                <div class="station-info">
+                    <div class="station-name">Radio Record</div>
+                    <div class="station-genre">Dance</div>
+                </div>
+            </div>
+            <div class="radio-station" onclick="toggleRadio('europa')">
+                <button class="play-button">▶️</button>
+                <div class="station-info">
+                    <div class="station-name">Europa Plus</div>
+                    <div class="station-genre">Pop</div>
+                </div>
+            </div>
+            <div class="radio-station" onclick="toggleRadio('relax')">
+                <button class="play-button">▶️</button>
+                <div class="station-info">
+                    <div class="station-name">Relax FM</div>
+                    <div class="station-genre">Relax</div>
+                </div>
+            </div>
+        </div>
+        <div class="volume-control">
+            <input type="range" min="0" max="100" value="50">
+        </div>
+    </div>
+
+    <!-- Добавляем часы и инструменты -->
+    <div class="clock-widget" onclick="toggleTimeTools()">
+        <div class="clock-display" id="clockDisplay">00:00:00</div>
+    </div>
+
+    <div class="time-tools" id="timeTools">
+        <div class="time-tool">
+            <div class="tool-header">
+                <span class="tool-icon">⏰</span>
+                <span class="tool-title">Будильник</span>
+            </div>
+            <input type="time" id="alarmTime">
+            <button onclick="setAlarm()">Установить</button>
+            <div id="alarmsList"></div>
+        </div>
+        
+        <div class="time-tool">
+            <div class="tool-header">
+                <span class="tool-icon">⏱️</span>
+                <span class="tool-title">Секундомер</span>
+            </div>
+            <div class="stopwatch-display" id="stopwatchDisplay">00:00:00</div>
+            <div class="timer-controls">
+                <button onclick="toggleStopwatch()" id="stopwatchBtn">Старт</button>
+                <button onclick="resetStopwatch()">Сброс</button>
+            </div>
+        </div>
+        
+        <div class="time-tool">
+            <div class="tool-header">
+                <span class="tool-icon">⏲️</span>
+                <span class="tool-title">Таймер</span>
+            </div>
+            <input type="number" id="timerMinutes" placeholder="Минуты">
+            <button onclick="startTimer()">Запустить</button>
+            <div id="timerDisplay">00:00</div>
+        </div>
+    </div>
+
+    <!-- Добавляем контейнер для канбан-доски -->
+    <div class="speech-container kanban-container" data-app="kanban">
+        <div class="toggle-container">
+            <button class="toggle-visibility" onclick="toggleContainer(this)">🔄</button>
+        </div>
+        <div class="kanban-header">
+            <h1>Канбан-доска</h1>
+            <button onclick="addColumn()">Добавить колонку</button>
+        </div>
+        <div class="kanban-board" id="kanbanBoard">
+            <!-- Колонки будут добавляться динамически -->
+        </div>
+    </div>
+
+    <!-- Добавляем контейнер для уведомлений в body -->
+    <div class="notification-container"></div>
+
+    <script>
+        let recognition = null;
+        let isRecognizing = false;
+        let finalTranscript = '';
+        let commandsTree = [];
+        let speechEnabled = false;
+        let currentRate = 1.7;
+        let audioPlayer = null;
+        let wakeWord = '';
+        let wakeWordRecognition = null;
+        let isWakeWordListening = false;
+        let responseHistory = [];
+        let lastResponse = null;
+        let isDragging = false;
+        let notes = [];
+        let favorites = [];
+
+        // Радио
+        const stations = {
+            record: {
+                url: 'https://radiorecord.hostingradio.ru/rr_main96.aacp',
+                name: 'Radio Record',
+                genre: 'Dance'
+            },
+            europa: {
+                url: 'https://ep128.hostingradio.ru:8030/ep128',
+                name: 'Europa Plus',
+                genre: 'Pop'
+            },
+            relax: {
+                url: 'https://str.pcradio.ru/relaxfm_ru-hi',
+                name: 'Relax FM',
+                genre: 'Relax'
+            }
+        };
+
+        let currentStation = null;
+        let radioPlayer = new Audio();
+
+        function toggleRadio(stationId) {
+            const station = stations[stationId];
+            if (!station) return;
+            
+            if (currentStation === stationId) {
+                if (radioPlayer.paused) {
+                    radioPlayer.play();
+                    updateRadioButton(stationId, true);
+                } else {
+                    radioPlayer.pause();
+                    updateRadioButton(stationId, false);
+                }
+            } else {
+                if (currentStation) {
+                    updateRadioButton(currentStation, false);
+                }
+                currentStation = stationId;
+                radioPlayer.src = station.url;
+                radioPlayer.play();
+                updateRadioButton(stationId, true);
+            }
+        }
+
+        function updateRadioButton(stationId, isPlaying) {
+            const station = document.querySelector(`.radio-station[onclick="toggleRadio('${stationId}')"]`);
+            const button = station.querySelector('.play-button');
+            button.textContent = isPlaying ? '⏸️' : '▶️';
+            station.classList.toggle('active', isPlaying);
+        }
+
+        // Часы и таймеры
+        let stopwatchInterval = null;
+        let stopwatchTime = 0;
+        let timerInterval = null;
+        let alarms = [];
+
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            document.getElementById('clockDisplay').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        function toggleTimeTools() {
+            document.getElementById('timeTools').classList.toggle('show');
+        }
+
+        function toggleStopwatch() {
+            if (stopwatchInterval) {
+                clearInterval(stopwatchInterval);
+                stopwatchInterval = null;
+                document.getElementById('stopwatchBtn').textContent = 'Старт';
+            } else {
+                stopwatchInterval = setInterval(() => {
+                    stopwatchTime += 1; // Обновляем каждую миллисекунду
+                    updateStopwatchDisplay();
+                }, 1);
+                document.getElementById('stopwatchBtn').textContent = 'Стоп';
+            }
+        }
+
+        function resetStopwatch() {
+            stopwatchTime = 0;
+            updateStopwatchDisplay();
+            if (stopwatchInterval) {
+                clearInterval(stopwatchInterval);
+                stopwatchInterval = null;
+                document.getElementById('stopwatchBtn').textContent = 'Старт';
+            }
+        }
+
+        function updateStopwatchDisplay() {
+            const display = document.getElementById('stopwatchDisplay');
+            const milliseconds = stopwatchTime % 1000;
+            const seconds = Math.floor((stopwatchTime / 1000) % 60);
+            const minutes = Math.floor((stopwatchTime / (1000 * 60)) % 60);
+            const hours = Math.floor(stopwatchTime / (1000 * 60 * 60));
+            
+            display.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+        }
+
+        function startTimer() {
+            const minutes = parseInt(document.getElementById('timerMinutes').value);
+            if (isNaN(minutes) || minutes <= 0) return;
+            
+            let timeLeft = minutes * 60;
+            updateTimerDisplay(timeLeft);
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay(timeLeft);
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    alert('Таймер завершен!');
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        // Функция для добавления команды
+        function addCommand() {
+            const input = document.getElementById('newCommand');
+            const commandText = input.value.trim().toLowerCase();
+            
+            if (commandText) {
+                commandsTree.push({
+                    id: Date.now(),
+                    text: commandText
+                });
+                updateCommandsList();
+                input.value = '';
+            }
+        }
+
+        // Функция для удаления команды
+        function deleteCommand(id) {
+            commandsTree = commandsTree.filter(cmd => cmd.id !== id);
+            updateCommandsList();
+        }
+
+        // Функция для отображения списка команд
+        function updateCommandsList() {
+            const list = document.getElementById('commandsList');
+            list.innerHTML = commandsTree.map(cmd => `
+                <div class="command-item">
+                    <span class="command-text">${cmd.text}</span>
+                    <div class="command-actions">
+                        <button onclick="addToFavorites(this, 'command')" class="add-to-favorites">⭐</button>
+                        <button onclick="deleteCommand(${cmd.id})">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Speech Recognition
+        // Обновляем инициализацию распознавания речи
+function initRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        showNotification('Ошибка', 'Ваш браузер не поддерживает распознавание речи. Используйте Chrome.', 'error');
+        return;
+    }
+
+    // Проверяем доступ к микрофону
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            stream.getTracks().forEach(track => track.stop());
+            setupRecognition(SpeechRecognition);
+        })
+        .catch(err => {
+            showNotification('Ошибка', 'Нет доступа к микрофону: ' + err.message, 'error');
+            console.error('Ошибка микрофона:', err);
+        });
+}
+
+function setupRecognition(SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'ru-RU';
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+        isRecognizing = true;
+        updateStatus('Говорите...');
+        document.querySelector('.mic-indicator').classList.add('active');
+        const recordBtn = document.getElementById('recordButton');
+        recordBtn.textContent = '🛑';
+        recordBtn.classList.add('active');
+    };
+
+    recognition.onend = () => {
+        if (isRecognizing) {
+            // Автоматически перезапускаем, если остановка не была намеренной
+            try {
+                recognition.start();
+            } catch (e) {
+                stopRecognition();
+            }
+        } else {
+            stopRecognition();
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.error('Ошибка распознавания:', event.error);
+        switch (event.error) {
+            case 'no-speech':
+                // Игнорируем эту ошибку, так как она часто возникает
+                break;
+            case 'network':
+                showNotification('Ошибка', 'Проверьте подключение к интернету', 'error');
+                stopRecognition();
+                break;
+            case 'not-allowed':
+            case 'permission-denied':
+                showNotification('Ошибка', 'Нет доступа к микрофону', 'error');
+                stopRecognition();
+                break;
+            default:
+                showNotification('Ошибка', `Ошибка распознавания: ${event.error}`, 'error');
+                stopRecognition();
+        }
+    };
+
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript + ' ';
+                processVoiceCommand(transcript.trim().toLowerCase());
+            } else {
+                interimTranscript = transcript;
+            }
+        }
+
+        const output = document.getElementById('output2');
+        output.value = finalTranscript + interimTranscript;
+        output.scrollTop = output.scrollHeight;
+    };
+}
+
+function toggleRecognition() {
+    if (!recognition) {
+        initRecognition();
+        return;
+    }
+
+    if (!isRecognizing) {
+        try {
+            recognition.start();
+            showNotification('Распознавание', 'Распознавание речи запущено', 'info');
+        } catch (e) {
+            console.error('Ошибка запуска:', e);
+            showNotification('Ошибка', 'Не удалось запустить распознавание', 'error');
+            stopRecognition();
+        }
+    } else {
+        stopRecognition();
+    }
+}
+
+function stopRecognition() {
+    if (recognition) {
+        try {
+            recognition.stop();
+        } catch (e) {
+            console.error('Ошибка остановки:', e);
+        }
+    }
+    
+    isRecognizing = false;
+    document.querySelector('.mic-indicator').classList.remove('active');
+    const recordBtn = document.getElementById('recordButton');
+    recordBtn.textContent = '🎤';
+    recordBtn.classList.remove('active');
+    updateStatus('Распознавание остановлено');
+}
+
+        // Функции для работы с GigaChat
+        async function sendMessage() {
+            const input = document.getElementById('chatMessage');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatOutput = document.getElementById('chatOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            chatOutput.value += `[${timestamp}] Вы: ${message}\n`;
+            
+            const speechToggle = document.getElementById('speechToggle');
+            const sendButton = document.querySelector('button[onclick="sendMessage()"]');
+            
+            try {
+                sendButton.disabled = true;
+                updateStatus('Отправка сообщения...');
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    chatOutput.value += `[${timestamp}] Ошибка: ${data.error}\n`;
+                    updateStatus('Ошибка: ' + data.error);
+                } else {
+                    const botResponse = data.response;
+                    lastResponse = {
+                        text: botResponse,
+                        timestamp: timestamp,
+                        audioUrl: null
+                    };
+                    
+                    chatOutput.value += `[${timestamp}] GigaChat: ${botResponse}\n`;
+                    if (speechEnabled) {
+                        try {
+                            speechToggle.classList.add('loading');
+                            updateStatus('Генерация речи...');
+                            const audioResponse = await fetch('/api/tts', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ text: botResponse })
+                            });
+                            
+                            if (!audioResponse.ok) {
+                                const errorData = await audioResponse.json();
+                                throw new Error(errorData.error || 'Ошибка синтеза речи');
+                            }
+                            
+                            const audioBlob = await audioResponse.blob();
+                            const audioUrl = URL.createObjectURL(audioBlob);
+                            lastResponse.audioUrl = audioUrl;
+                            responseHistory.unshift(lastResponse);
+                            
+                            if (audioPlayer) {
+                                audioPlayer.pause();
+                                audioPlayer = null;
+                            }
+                            
+                            audioPlayer = setupAudioPlayer(audioUrl);
+                            audioPlayer.play();
+                            document.getElementById('speechControls').style.display = 'flex';
+                            updateStatus('Воспроизведение...');
+                        } catch (error) {
+                            console.error('TTS error:', error);
+                            updateStatus('Ошибка синтеза речи: ' + error.message);
+                        } finally {
+                            speechToggle.classList.remove('loading');
+                        }
+                    } else {
+                        updateStatus('Готово');
+                    }
+                }
+            } catch (error) {
+                chatOutput.value += `[${timestamp}] Ошибка: ${error.message}\n`;
+                updateStatus('Ошибка отправки сообщения: ' + error.message);
+            } finally {
+                sendButton.disabled = false;
+            }
+
+            chatOutput.scrollTop = chatOutput.scrollHeight;
+            input.value = '';
+        }
+
+        async function sendVoiceMessage(message) {
+            const chatOutput = document.getElementById('chatOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            chatOutput.value += `[${timestamp}] Вы: ${message}\n`;
+            
+            const speechToggle = document.getElementById('speechToggle');
+            
+            try {
+                updateStatus('Отправка голосового сообщения...');
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    chatOutput.value += `[${timestamp}] Ошибка: ${data.error}\n`;
+                    updateStatus('Ошибка: ' + data.error);
+                } else {
+                    const botResponse = data.response;
+                    chatOutput.value += `[${timestamp}] GigaChat: ${botResponse}\n`;
+                    if (speechEnabled) {
+                        try {
+                            speechToggle.classList.add('loading');
+                            updateStatus('Генерация речи...');
+                            const audioResponse = await fetch('/api/tts', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ text: botResponse })
+                            });
+                            
+                            if (!audioResponse.ok) {
+                                const errorData = await audioResponse.json();
+                                throw new Error(errorData.error || 'Ошибка синтеза речи');
+                            }
+                            
+                            const audioBlob = await audioResponse.blob();
+                            const audioUrl = URL.createObjectURL(audioBlob);
+                            
+                            if (audioPlayer) {
+                                audioPlayer.pause();
+                                audioPlayer = null;
+                            }
+                            
+                            audioPlayer = setupAudioPlayer(audioUrl);
+                            audioPlayer.play();
+                            document.getElementById('speechControls').style.display = 'flex';
+                            updateStatus('Воспроизведение...');
+                        } catch (error) {
+                            console.error('TTS error:', error);
+                            updateStatus('Ошибка синтеза речи: ' + error.message);
+                        } finally {
+                            speechToggle.classList.remove('loading');
+                        }
+                    } else {
+                        updateStatus('Готово');
+                    }
+                }
+            } catch (error) {
+                chatOutput.value += `[${timestamp}] Ошибка: ${error.message}\n`;
+                updateStatus('Ошибка отправки сообщения: ' + error.message);
+            }
+
+            chatOutput.scrollTop = chatOutput.scrollHeight;
+        }
+
+        function setupAudioPlayer(audioUrl) {
+            const playPauseBtn = document.querySelector('.play-pause');
+            const speedControl = document.querySelector('.speed-control');
+            const volumeControl = document.querySelector('.volume-control');
+            const timeDisplay = document.querySelector('.time-display');
+            
+            // Устанавливаем начальные значения для элементов управления
+            if (!audioUrl) {
+                timeDisplay.textContent = '0:00 / 0:00';
+                playPauseBtn.classList.add('disabled');
+                speedControl.classList.add('disabled');
+                volumeControl.classList.add('disabled');
+                return null;
+            }
+            
+            // Если есть аудио, убираем неактивное состояние
+            playPauseBtn.classList.remove('disabled');
+            speedControl.classList.remove('disabled');
+            volumeControl.classList.remove('disabled');
+            
+            if (audioPlayer) {
+                audioPlayer.pause();
+                audioPlayer = null;
+            }
+            
+            audioPlayer = new Audio(audioUrl);
+            audioPlayer.playbackRate = currentRate;
+            document.querySelector('.speed-slider').value = currentRate;
+            document.querySelector('.speed-value').textContent = currentRate + 'x';
+            
+            const speechControls = document.getElementById('speechControls');
+            const progressBar = document.querySelector('.progress-bar');
+            
+            // Показываем элементы управления сразу
+            speechControls.style.display = 'flex';
+            
+            audioPlayer.onended = () => {
+                playPauseBtn.classList.remove('playing');
+                progressBar.style.width = '100%';
+                updateStatus('Воспроизведение завершено');
+            };
+            
+            audioPlayer.onplay = () => {
+                playPauseBtn.classList.add('playing');
+            };
+            
+            audioPlayer.onpause = () => {
+                playPauseBtn.classList.remove('playing');
+                updateStatus('Пауза');
+            };
+            
+            audioPlayer.ontimeupdate = () => {
+                if (!isDragging) {
+                    const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                    progressBar.style.width = progress + '%';
+                    
+                    const currentTime = audioPlayer.currentTime / audioPlayer.playbackRate;
+                    const duration = audioPlayer.duration / audioPlayer.playbackRate;
+                    
+                    timeDisplay.textContent = `${currentTime.toFixed(1)} / ${duration.toFixed(1)}`;
+                    
+                    if (!audioPlayer.paused) {
+                        updateStatus(`${currentTime.toFixed(1)}с / ${duration.toFixed(1)}с (${currentRate.toFixed(1)}x)`);
+                    }
+                }
+            };
+            
+            // Обработчики для слайдеров
+            const volumeSlider = document.querySelector('.volume-slider');
+            const speedSlider = document.querySelector('.speed-slider');
+            
+            volumeSlider.addEventListener('input', (e) => {
+                audioPlayer.volume = e.target.value;
+            });
+            
+            speedSlider.addEventListener('input', (e) => {
+                changeRate(e.target.value);
+            });
+            
+            // Обработчик для прогресс-бара
+            const progressContainer = document.querySelector('.progress-container');
+            progressContainer.addEventListener('click', (e) => {
+                const rect = progressContainer.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                audioPlayer.currentTime = pos * audioPlayer.duration;
+            });
+            
+            return audioPlayer;
+        }
+
+        function toggleSpeech() {
+            if (!audioPlayer) return;
+            
+            if (audioPlayer.paused) {
+                audioPlayer.play();
+            } else {
+                audioPlayer.pause();
+            }
+        }
+
+        function changeRate(rate) {
+            currentRate = parseFloat(rate);
+            document.querySelector('.speed-value').textContent = rate + 'x';
+            document.querySelector('.speed-slider').value = rate;
+            
+            if (audioPlayer) {
+                const currentPosition = audioPlayer.currentTime / audioPlayer.duration;
+                audioPlayer.playbackRate = currentRate;
+                
+                const duration = audioPlayer.duration / currentRate;
+                const currentTime = duration * currentPosition;
+                document.querySelector('.time-display').textContent = 
+                    `${currentTime.toFixed(1)} / ${duration.toFixed(1)}`;
+            }
+        }
+
+        function checkCommands(transcript) {
+            if (!transcript) return;
+            
+            const output1 = document.getElementById('output1');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // Проверяем каждую команду
+            for (const command of commandsTree) {
+                if (transcript.toLowerCase().includes(command.text)) {
+                    output1.value += `[${timestamp}] Найдена команда: ${command.text}\n`;
+                    output1.scrollTop = output1.scrollHeight;
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // Функция для редактирования имени
+        function editAssistantName() {
+            const display = document.getElementById('assistantNameDisplay');
+            const currentName = display.textContent.trim();
+            
+            // Создаем поле ввода
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.className = 'assistant-name-input';
+            
+            // Заменяем текст на поле ввода
+            display.innerHTML = '';
+            display.appendChild(input);
+            input.focus();
+            
+            // Обработчики для сохранения
+            input.onblur = saveAssistantName;
+            input.onkeypress = e => {
+                if (e.key === 'Enter') {
+                    saveAssistantName();
+                }
+            };
+            
+            function saveAssistantName() {
+                const newName = input.value.trim();
+                if (newName) {
+                    display.innerHTML = newName;
+                    wakeWord = newName.toLowerCase();
+                    updateStatus(`Ожидаю команду: ${wakeWord}`);
+                    startWakeWordRecognition();
+                } else {
+                    display.innerHTML = currentName;
+                }
+            }
+        }
+
+        // Функция для прослушивания ключевого слова
+        function startWakeWordRecognition() {
+            if (!('webkitSpeechRecognition' in window)) return;
+            
+            if (wakeWordRecognition) {
+                wakeWordRecognition.stop();
+                wakeWordRecognition = null;
+            }
+
+            wakeWordRecognition = new webkitSpeechRecognition();
+            wakeWordRecognition.continuous = true;
+            wakeWordRecognition.interimResults = true;
+            wakeWordRecognition.lang = 'ru-RU';
+            
+            wakeWordRecognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript.toLowerCase();
+                    console.log('Услышано:', transcript, 'Ищем:', wakeWord);
+                    if (transcript.includes(wakeWord)) {
+                        console.log('Ключевое слово найдено!');
+                        // Если услышали ключевое слово - запускаем распознавание
+                        if (!isRecognizing) {
+                            toggleRecognition();
+                        }
+                    }
+                }
+            };
+            
+            wakeWordRecognition.onend = () => {
+                if (isWakeWordListening) {
+                    setTimeout(() => {
+                        wakeWordRecognition.start();
+                    }, 100);
+                }
+            };
+            
+            wakeWordRecognition.onerror = (event) => {
+                console.error('Wake word recognition error:', event.error);
+                if (event.error === 'no-speech') return;
+                
+                if (isWakeWordListening) {
+                    setTimeout(() => {
+                        startWakeWordRecognition();
+                    }, 100);
+                }
+            };
+            
+            isWakeWordListening = true;
+            wakeWordRecognition.start();
+        }
+
+        // Функция для остановки прослушивания ключевого слова
+        function stopWakeWordRecognition() {
+            if (wakeWordRecognition) {
+                isWakeWordListening = false;
+                wakeWordRecognition.stop();
+                wakeWordRecognition = null;
+            }
+        }
+
+        function checkMicrophoneLevel() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function(stream) {
+                    const audioContext = new AudioContext();
+                    const analyser = audioContext.createAnalyser();
+                    const microphone = audioContext.createMediaStreamSource(stream);
+                    const scriptProcessor = audioContext.createScriptProcessor(2048, 1, 1);
+
+                    analyser.smoothingTimeConstant = 0.8;
+                    analyser.fftSize = 1024;
+
+                    microphone.connect(analyser);
+                    analyser.connect(scriptProcessor);
+                    scriptProcessor.connect(audioContext.destination);
+
+                    const indicator = document.getElementById('micIndicator');
+                    scriptProcessor.onaudioprocess = function() {
+                        const array = new Uint8Array(analyser.frequencyBinCount);
+                        analyser.getByteFrequencyData(array);
+                        const arraySum = array.reduce((a, value) => a + value, 0);
+                        const average = arraySum / array.length;
+                        
+                        indicator.classList.toggle('active', average > 10);
+                    };
+                })
+                .catch(function(err) {
+                    console.error('Ошибка проверки микрофона:', err);
+                });
+        }
+
+        function toggleSpeechEnabled() {
+            const button = document.getElementById('speechToggle');
+            const speechControls = document.getElementById('speechControls');
+            
+            speechEnabled = !speechEnabled;
+            
+            if (speechEnabled) {
+                button.textContent = '🔊';
+                button.classList.add('active');
+                button.title = 'Озвучка включена';
+                
+                // Инициализируем элементы управления при первом включении
+                    if (!audioPlayer) {
+                    setupAudioPlayer(null);
+                    }
+                
+                // Показываем элементы управления
+                speechControls.style.display = 'flex';
+                
+            } else {
+                button.textContent = '🔈';
+                button.classList.remove('active');
+                button.title = 'Озвучка выключена';
+                button.classList.remove('playing', 'paused');
+                
+                if (audioPlayer) {
+                    audioPlayer.pause();
+                    audioPlayer = null;
+                }
+                
+                // Скрываем элементы управления
+                speechControls.style.display = 'none';
+            }
+        }
+
+        // Функция для отображения истории ответов
+        function showResponseHistory() {
+            const modal = document.getElementById('responseHistoryModal');
+            const historyList = document.getElementById('responseHistoryList');
+            
+            historyList.innerHTML = responseHistory.map((response, index) => `
+                <div class="response-item" onclick="playHistoryResponse(${index})">
+                    <div class="response-time">${response.timestamp}</div>
+                    <div>${response.text.substring(0, 100)}${response.text.length > 100 ? '...' : ''}</div>
+                </div>
+            `).join('');
+            
+            modal.style.display = 'block';
+        }
+
+        // Функция для закрытия истории ответов
+        function closeResponseHistory() {
+            document.getElementById('responseHistoryModal').style.display = 'none';
+        }
+
+        // Функция для воспроизведения ответа из истории
+        function playHistoryResponse(index) {
+            const response = responseHistory[index];
+            if (response && response.audioUrl) {
+                if (audioPlayer) {
+                    audioPlayer.pause();
+                    audioPlayer = null;
+                }
+                audioPlayer = setupAudioPlayer(response.audioUrl);
+                audioPlayer.play();
+                document.getElementById('speechControls').style.display = 'flex';
+                closeResponseHistory();
+            }
+        }
+
+        // Закрытие модального окна при клике вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('responseHistoryModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function toggleContainer(button) {
+            const container = button.closest('.speech-container');
+            if (!container) return;
+            
+            container.classList.toggle('collapsed');
+            
+            // Обновляем иконку кнопки
+            if (container.classList.contains('collapsed')) {
+                button.textContent = '📋';
+            } else {
+                button.textContent = '🔄';
+            }
+            
+            // Обновляем состояние на панели задач
+            const appId = container.getAttribute('data-app');
+            if (appId) {
+                const taskbarApp = document.querySelector(`.taskbar-app[data-app="${appId}"]`);
+                if (taskbarApp) {
+                    taskbarApp.classList.toggle('active', !container.classList.contains('collapsed'));
+                }
+            }
+        }
+
+        function toggleApp(appId) {
+            const container = document.querySelector(`.speech-container[data-app="${appId}"]`);
+            const taskbarApp = document.querySelector(`.taskbar-app[data-app="${appId}"]`);
+            
+            if (!container) return;
+            
+            // Переключаем видимость контейнера
+            container.classList.toggle('hidden');
+            
+            // Обновляем состояние кнопки на панели задач
+            if (container.classList.contains('hidden')) {
+                taskbarApp.classList.remove('active');
+            } else {
+                taskbarApp.classList.add('active');
+            }
+        }
+
+        function moveTaskbar(position) {
+            const taskbar = document.getElementById('taskbar');
+            taskbar.className = 'taskbar ' + position;
+            
+            // Обновляем отступы для основного контейнера
+            const mainContainer = document.querySelector('.main-container');
+            mainContainer.style.margin = '0';
+            
+            switch(position) {
+                case 'top':
+                    mainContainer.style.marginTop = '40px';
+                    break;
+                case 'bottom':
+                    mainContainer.style.marginBottom = '40px';
+                    break;
+                case 'left':
+                    mainContainer.style.marginLeft = '40px';
+                    break;
+                case 'right':
+                    mainContainer.style.marginRight = '40px';
+                    break;
+            }
+        }
+
+        // Контекстное меню для панели задач
+        document.getElementById('taskbar').addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const contextMenu = document.getElementById('taskbarContextMenu');
+            contextMenu.style.display = 'block';
+            
+            // Позиционируем меню возле курсора
+            contextMenu.style.left = e.pageX + 'px';
+            contextMenu.style.top = e.pageY + 'px';
+        });
+
+        // Закрываем контекстное меню при клике вне его
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#taskbarContextMenu')) {
+                document.getElementById('taskbarContextMenu').style.display = 'none';
+            }
+        });
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', () => {
+            initRecognition();
+            checkMicrophoneLevel();
+            // Инициализируем подсказки
+            const speechToggle = document.getElementById('speechToggle');
+            speechToggle.title = 'Озвучка выключена';
+            // Устанавливаем начальное имя и запускаем прослушивание
+            const display = document.getElementById('assistantNameDisplay');
+            wakeWord = display.textContent.trim().toLowerCase();
+            updateStatus(`Ожидаю команду: ${wakeWord}`);
+            startWakeWordRecognition();
+            
+            // Добавляем атрибуты data-app к контейнерам
+            const containers = document.querySelectorAll('.speech-container');
+            const apps = ['chat', 'recognition', 'commands', 'notes', 'favorites', 'kanban', 'radio', 'clock'];
+            containers.forEach((container, index) => {
+                container.setAttribute('data-app', apps[index]);
+            });
+            
+            // Обновляем состояние кнопок на панели задач
+            updateTaskbarState();
+            
+            // Перемещаем панель задач наверх по умолчанию
+            moveTaskbar('top');
+            
+            // Загружаем сохраненные заметки
+            const savedNotes = localStorage.getItem('notes');
+            if (savedNotes) {
+                notes = JSON.parse(savedNotes);
+                updateNotesList();
+            }
+            
+            // Загружаем сохраненное избранное
+            const savedFavorites = localStorage.getItem('favorites');
+            if (savedFavorites) {
+                favorites = JSON.parse(savedFavorites);
+                updateFavoritesList();
+            }
+            
+            // Инициализируем радио
+            updateStationList();
+            
+            // Инициализируем часы
+            const clockWidget = document.querySelector('.clock-widget');
+            makeDraggable(clockWidget);
+            
+            // Запускаем часы сразу
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Сохраняем позицию часов
+            const savedPosition = localStorage.getItem('clockPosition');
+            if (savedPosition) {
+                const { top, left } = JSON.parse(savedPosition);
+                clockWidget.style.top = top;
+                clockWidget.style.left = left;
+                clockWidget.style.right = 'auto';
+            }
+            
+            // Сохраняем позицию при перетаскивании
+            clockWidget.addEventListener('mouseup', () => {
+                localStorage.setItem('clockPosition', JSON.stringify({
+                    top: clockWidget.style.top,
+                    left: clockWidget.style.left
+                }));
+            });
+            
+            // Настраиваем громкость радио
+            document.querySelector('.volume-control input').addEventListener('input', (e) => {
+                radioPlayer.volume = e.target.value / 100;
+            });
+            
+            // Канбан-доска
+            let kanbanData = {
+                columns: [
+                    {
+                        id: 'todo',
+                        title: 'К выполнению',
+                        tasks: []
+                    },
+                    {
+                        id: 'inProgress',
+                        title: 'В процессе',
+                        tasks: []
+                    },
+                    {
+                        id: 'done',
+                        title: 'Выполнено',
+                        tasks: []
+                    }
+                ]
+            };
+
+            function initKanban() {
+                loadKanbanData();
+                renderKanban();
+                initDragAndDrop();
+            }
+
+            function renderKanban() {
+                const board = document.getElementById('kanbanBoard');
+                board.innerHTML = kanbanData.columns.map(column => `
+                    <div class="kanban-column" data-column-id="${column.id}">
+                        <div class="column-header">
+                            <div class="column-title" onclick="editColumnTitle('${column.id}')">${column.title}</div>
+                            <span class="task-count">${column.tasks.length}</span>
+                        </div>
+                        <div class="tasks-container">
+                            ${column.tasks.map(task => renderTask(task)).join('')}
+                        </div>
+                        <button class="add-task-btn" onclick="showAddTaskForm('${column.id}')">+ Добавить задачу</button>
+                    </div>
+                `).join('');
+            }
+
+            function renderTask(task) {
+                return `
+                    <div class="kanban-task" draggable="true" data-task-id="${task.id}">
+                        <div class="task-header">
+                            <div class="task-title">${task.title}</div>
+                            <div class="task-priority priority-${task.priority}">${task.priority}</div>
+                        </div>
+                        <div class="task-description">${task.description}</div>
+                        <div class="task-footer">
+                            <div class="task-date">${task.date}</div>
+                            <div class="task-actions">
+                                <button onclick="editTask('${task.id}')">✏️</button>
+                                <button onclick="deleteTask('${task.id}')">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function addTask(columnId) {
+                const form = document.querySelector('.task-form');
+                const title = form.querySelector('[name="title"]').value;
+                const description = form.querySelector('[name="description"]').value;
+                const priority = form.querySelector('[name="priority"]').value;
+
+                const task = {
+                    id: Date.now().toString(),
+                    title,
+                    description,
+                    priority,
+                    date: new Date().toLocaleDateString()
+                };
+
+                const column = kanbanData.columns.find(col => col.id === columnId);
+                column.tasks.push(task);
+                
+                saveKanbanData();
+                renderKanban();
+            }
+
+            function initDragAndDrop() {
+                const tasks = document.querySelectorAll('.kanban-task');
+                const columns = document.querySelectorAll('.kanban-column');
+
+                tasks.forEach(task => {
+                    task.addEventListener('dragstart', dragStart);
+                    task.addEventListener('dragend', dragEnd);
+                });
+
+                columns.forEach(column => {
+                    column.addEventListener('dragover', dragOver);
+                    column.addEventListener('drop', drop);
+                });
+            }
+
+            function dragStart(e) {
+                e.target.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', e.target.dataset.taskId);
+            }
+
+            function dragEnd(e) {
+                e.target.classList.remove('dragging');
+            }
+
+            function dragOver(e) {
+                e.preventDefault();
+            }
+
+            function drop(e) {
+                e.preventDefault();
+                const taskId = e.dataTransfer.getData('text/plain');
+                const targetColumn = e.target.closest('.kanban-column');
+                
+                if (!targetColumn) return;
+
+                const sourceColumn = findTaskColumn(taskId);
+                const targetColumnId = targetColumn.dataset.columnId;
+                
+                if (sourceColumn.id !== targetColumnId) {
+                    moveTask(taskId, sourceColumn.id, targetColumnId);
+                }
+            }
+
+            function moveTask(taskId, sourceColumnId, targetColumnId) {
+                const sourceColumn = kanbanData.columns.find(col => col.id === sourceColumnId);
+                const targetColumn = kanbanData.columns.find(col => col.id === targetColumnId);
+                
+                const taskIndex = sourceColumn.tasks.findIndex(task => task.id === taskId);
+                const task = sourceColumn.tasks.splice(taskIndex, 1)[0];
+                
+                targetColumn.tasks.push(task);
+                
+                saveKanbanData();
+                renderKanban();
+            }
+
+            function saveKanbanData() {
+                localStorage.setItem('kanbanData', JSON.stringify(kanbanData));
+            }
+
+            function loadKanbanData() {
+                const saved = localStorage.getItem('kanbanData');
+                if (saved) {
+                    kanbanData = JSON.parse(saved);
+                }
+            }
+
+            // Добавляем инициализацию канбана в существующий DOMContentLoaded
+            document.addEventListener('DOMContentLoaded', () => {
+                // Существующий код...
+                
+                // Инициализируем канбан
+                initKanban();
+                
+                // Обновляем список приложений
+                const apps = ['chat', 'recognition', 'commands', 'notes', 'favorites', 'kanban', 'radio', 'clock'];
+                const containers = document.querySelectorAll('.speech-container');
+                containers.forEach((container, index) => {
+                    if (index < apps.length) {
+                        container.setAttribute('data-app', apps[index]);
+                    }
+                });
+            });
+        });
+
+        function updateTaskbarState() {
+            document.querySelectorAll('.speech-container').forEach(container => {
+                const appId = container.getAttribute('data-app');
+                const taskbarApp = document.querySelector(`.taskbar-app[data-app="${appId}"]`);
+                
+                if (!container.classList.contains('hidden')) {
+                    taskbarApp.classList.add('active');
+                } else {
+                    taskbarApp.classList.remove('active');
+                }
+            });
+        }
+
+        function addNote() {
+            const title = document.getElementById('noteTitle').value.trim();
+            const content = document.getElementById('noteContent').value.trim();
+            
+            if (title || content) {
+                notes.unshift({
+                    id: Date.now(),
+                    title: title || 'Без заголовка',
+                    content,
+                    date: new Date().toLocaleString()
+                });
+                
+                updateNotesList();
+                document.getElementById('noteTitle').value = '';
+                document.getElementById('noteContent').value = '';
+            }
+        }
+
+        function deleteNote(id) {
+            notes = notes.filter(note => note.id !== id);
+            updateNotesList();
+        }
+
+        function updateNotesList() {
+            const notesList = document.getElementById('notesList');
+            notesList.innerHTML = notes.map(note => `
+                <div class="note-item">
+                    <div class="note-title">${note.title}</div>
+                    <div class="note-content">${note.content}</div>
+                    <div class="note-date">${note.date}</div>
+                    <div class="note-actions">
+                        <button onclick="addToFavorites(this, 'note')" class="add-to-favorites">⭐</button>
+                        <button onclick="deleteNote(${note.id})" class="delete-note">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Сохраняем заметки при изменении
+        function saveNotes() {
+            localStorage.setItem('notes', JSON.stringify(notes));
+        }
+
+        // Добавляем функцию для добавления сообщения в избранное
+        function addToFavorites(element, source) {
+            const item = element.closest('.command-item, .note-item, .response-item');
+            const content = source === 'command' ? 
+                item.querySelector('.command-text').textContent :
+                source === 'note' ? 
+                    `${item.querySelector('.note-title').textContent}\n${item.querySelector('.note-content').textContent}` :
+                    item.textContent;
+
+            const favorite = {
+                id: Date.now(),
+                content: content,
+                source: source,
+                date: new Date().toLocaleString()
+            };
+
+            favorites.unshift(favorite);
+            updateFavoritesList();
+            saveFavorites();
+        }
+
+        // Функция обновления списка избранного
+        function updateFavoritesList() {
+            const favoritesList = document.getElementById('favoritesList');
+            favoritesList.innerHTML = favorites.map(fav => `
+                <div class="favorite-item">
+                    <div class="favorite-source">Источник: ${fav.source}</div>
+                    <div class="favorite-content">${fav.content}</div>
+                    <div class="favorite-date">${fav.date}</div>
+                    <div class="favorite-actions">
+                        <button onclick="deleteFavorite(${fav.id})" class="delete-note">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Функция удаления из избранного
+        function deleteFavorite(id) {
+            favorites = favorites.filter(fav => fav.id !== id);
+            updateFavoritesList();
+            saveFavorites();
+        }
+
+        // Сохранение избранного в localStorage
+        function saveFavorites() {
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+        }
+
+        // Добавляем к заметкам
+        function addMessageToChat(message, isUser = true) {
+            const timestamp = new Date().toLocaleTimeString();
+            const messageText = `[${timestamp}] ${isUser ? 'Вы' : 'GigaChat'}: ${message}`;
+            chatOutput.value += messageText + '\n';
+            
+            // Добавляем кнопку "В избранное"
+            const addToFavBtn = document.createElement('button');
+            addToFavBtn.className = 'add-to-favorites';
+            addToFavBtn.textContent = '⭐';
+            addToFavBtn.onclick = () => addToFavorites(messageText, 'chat');
+            
+            chatOutput.parentElement.appendChild(addToFavBtn);
+        }
+
+        // Выносим kanbanData в глобальную область видимости
+        let kanbanData = {
+            columns: [
+                {
+                    id: 'todo',
+                    title: 'К выполнению',
+                    tasks: []
+                },
+                {
+                    id: 'inProgress',
+                    title: 'В процессе',
+                    tasks: []
+                },
+                {
+                    id: 'done',
+                    title: 'Выполнено',
+                    tasks: []
+                }
+            ]
+        };
+
+        // Добавляем функции для работы с канбаном
+        function showAddTaskForm(columnId) {
+            const column = document.querySelector(`[data-column-id="${columnId}"]`);
+            const existingForm = column.querySelector('.task-form');
+            
+            if (existingForm) {
+                existingForm.remove();
+                return;
+            }
+
+            const form = `
+                <div class="task-form">
+                    <input type="text" name="title" placeholder="Название задачи">
+                    <textarea name="description" placeholder="Описание задачи"></textarea>
+                    <select name="priority">
+                        <option value="low">Низкий</option>
+                        <option value="medium">Средний</option>
+                        <option value="high">Высокий</option>
+                    </select>
+                    <div class="form-actions">
+                        <button onclick="addTask('${columnId}')">Добавить</button>
+                        <button onclick="this.closest('.task-form').remove()">Отмена</button>
+                    </div>
+                </div>
+            `;
+            
+            column.querySelector('.tasks-container').insertAdjacentHTML('beforeend', form);
+        }
+
+        function findTaskColumn(taskId) {
+            return kanbanData.columns.find(column => 
+                column.tasks.some(task => task.id === taskId)
+            );
+        }
+
+        function editColumnTitle(columnId) {
+            const titleElement = document.querySelector(`[data-column-id="${columnId}"] .column-title`);
+            const currentTitle = titleElement.textContent;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentTitle;
+            input.className = 'column-title-input';
+            
+            input.onblur = () => {
+                const column = kanbanData.columns.find(col => col.id === columnId);
+                column.title = input.value || currentTitle;
+                saveKanbanData();
+                renderKanban();
+            };
+            
+            input.onkeypress = (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            };
+            
+            titleElement.replaceWith(input);
+            input.focus();
+        }
+
+        function deleteTask(taskId) {
+            kanbanData.columns.forEach(column => {
+                column.tasks = column.tasks.filter(task => task.id !== taskId);
+            });
+            saveKanbanData();
+            renderKanban();
+        }
+
+        function editTask(taskId) {
+            const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+            const task = kanbanData.columns
+                .flatMap(col => col.tasks)
+                .find(t => t.id === taskId);
+            
+            if (!task) return;
+            
+            const form = `
+                <div class="task-form">
+                    <input type="text" name="title" value="${task.title}" placeholder="Название задачи">
+                    <textarea name="description" placeholder="Описание задачи">${task.description}</textarea>
+                    <select name="priority">
+                        <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Низкий</option>
+                        <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Средний</option>
+                        <option value="high" ${task.priority === 'high' ? 'selected' : ''}>Высокий</option>
+                    </select>
+                    <div class="form-actions">
+                        <button onclick="updateTask('${taskId}', this)">Сохранить</button>
+                        <button onclick="renderKanban()">Отмена</button>
+                    </div>
+                </div>
+            `;
+            
+            taskElement.innerHTML = form;
+        }
+
+        function updateTask(taskId, button) {
+            const form = button.closest('.task-form');
+            const title = form.querySelector('[name="title"]').value;
+            const description = form.querySelector('[name="description"]').value;
+            const priority = form.querySelector('[name="priority"]').value;
+            
+            kanbanData.columns.forEach(column => {
+                const task = column.tasks.find(t => t.id === taskId);
+                if (task) {
+                    Object.assign(task, { title, description, priority });
+                }
+            });
+            
+            saveKanbanData();
+            renderKanban();
+        }
+
+        function addColumn() {
+            const id = 'column_' + Date.now();
+            kanbanData.columns.push({
+                id,
+                title: 'Новая колонка',
+                tasks: []
+            });
+            saveKanbanData();
+            renderKanban();
+        }
+
+        // Добавляем функции для перетаскивания часов
+        function makeDraggable(element) {
+            element.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                
+                // Начальное смещение от курсора до края элемента
+                const rect = element.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left;
+                const offsetY = e.clientY - rect.top;
+                
+                document.onmousemove = (e) => elementDrag(e, offsetX, offsetY);
+                document.onmouseup = closeDragElement;
+            }
+
+            function elementDrag(e, offsetX, offsetY) {
+                e = e || window.event;
+                e.preventDefault();
+                
+                // Устанавливаем позицию элемента напрямую по координатам курсора
+                element.style.left = (e.clientX - offsetX) + 'px';
+                element.style.top = (e.clientY - offsetY) + 'px';
+                element.style.right = 'auto';
+            }
+
+            function closeDragElement() {
+                document.onmousemove = null;
+                document.onmouseup = null;
+                
+                // Сохраняем позицию
+                localStorage.setItem('clockPosition', JSON.stringify({
+                    top: element.style.top,
+                    left: element.style.left
+                }));
+            }
+        }
+
+        // Обновляем функцию обновления часов
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            document.getElementById('clockDisplay').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        // Обновляем инициализацию в DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            initRecognition();
+        });
+            
+            // Инициализируем часы
+            const clockWidget = document.querySelector('.clock-widget');
+            makeDraggable(clockWidget);
+            
+            // Запускаем часы сразу
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Сохраняем позицию часов
+            const savedPosition = localStorage.getItem('clockPosition');
+            if (savedPosition) {
+                const { top, left } = JSON.parse(savedPosition);
+                clockWidget.style.top = top;
+                clockWidget.style.left = left;
+                clockWidget.style.right = 'auto';
+            }
+            
+            // Сохраняем позицию при перетаскивании
+            clockWidget.addEventListener('mouseup', () => {
+                localStorage.setItem('clockPosition', JSON.stringify({
+                    top: clockWidget.style.top,
+                    left: clockWidget.style.left
+                }));
+            });
+        });
+
+        function setAlarm() {
+            const timeInput = document.getElementById('alarmTime');
+            const time = timeInput.value;
+            if (!time) return;
+            
+            const alarm = {
+                id: Date.now(),
+                time,
+                active: true,
+                label: 'Будильник'
+            };
+            
+            alarms.push(alarm);
+            saveAlarms();
+            updateAlarmsList();
+            timeInput.value = '';
+        }
+
+        function updateAlarmsList() {
+            const list = document.getElementById('alarmsList');
+            list.innerHTML = alarms.map(alarm => `
+                <div class="alarm-item" data-id="${alarm.id}">
+                    <div class="alarm-info" onclick="editAlarm(${alarm.id})">
+                        <span class="alarm-time">${alarm.time}</span>
+                        <span class="alarm-label">${alarm.label}</span>
+                    </div>
+                    <div class="alarm-actions">
+                        <button onclick="toggleAlarm(${alarm.id})" class="alarm-toggle ${alarm.active ? 'active' : ''}">
+                            ${alarm.active ? '🔔' : '🔕'}
+                        </button>
+                        <button onclick="deleteAlarm(${alarm.id})" class="alarm-delete">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editAlarm(id) {
+            const alarm = alarms.find(a => a.id === id);
+            const alarmElement = document.querySelector(`.alarm-item[data-id="${id}"]`);
+            
+            alarmElement.innerHTML = `
+                <div class="alarm-edit-form">
+                    <input type="time" value="${alarm.time}" class="alarm-time-input">
+                    <input type="text" value="${alarm.label}" class="alarm-label-input" placeholder="Название">
+                    <div class="alarm-edit-actions">
+                        <button onclick="saveAlarmEdit(${id})">✓</button>
+                        <button onclick="updateAlarmsList()">✕</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function saveAlarmEdit(id) {
+            const alarmElement = document.querySelector(`.alarm-item[data-id="${id}"]`);
+            const timeInput = alarmElement.querySelector('.alarm-time-input');
+            const labelInput = alarmElement.querySelector('.alarm-label-input');
+            
+            const alarm = alarms.find(a => a.id === id);
+            alarm.time = timeInput.value;
+            alarm.label = labelInput.value;
+            
+            saveAlarms();
+            updateAlarmsList();
+        }
+
+        function toggleAlarm(id) {
+            const alarm = alarms.find(a => a.id === id);
+            alarm.active = !alarm.active;
+            saveAlarms();
+            updateAlarmsList();
+        }
+
+        function deleteAlarm(id) {
+            alarms = alarms.filter(a => a.id !== id);
+            saveAlarms();
+            updateAlarmsList();
+        }
+
+        function saveAlarms() {
+            localStorage.setItem('alarms', JSON.stringify(alarms));
+        }
+
+        // Функция для показа уведомлений
+        function showNotification(title, message, type = 'info') {
+            const container = document.querySelector('.notification-container');
+            const id = Date.now();
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️',
+                command: '🎯'
+            };
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.id = `notification-${id}`;
+            notification.innerHTML = `
+                <div class="notification-icon">${icons[type] || icons.info}</div>
+                <div class="notification-content">
+                    <div class="notification-title">${title}</div>
+                    <div class="notification-message">${message}</div>
+                </div>
+                <div class="notification-close" onclick="closeNotification(${id})">✕</div>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Автоматическое закрытие через 5 секунд
+            setTimeout(() => closeNotification(id), 5000);
+            
+            // Добавляем звуковой эффект
+            const audio = new Audio('data:audio/wav;base64,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');
+            audio.volume = 0.2;
+            audio.play();
+        }
+
+        // Функция закрытия уведомления
+        function closeNotification(id) {
+            const notification = document.getElementById(`notification-${id}`);
+            if (notification) {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }
+
+        function toggleClock() {
+            const clockWidget = document.querySelector('.clock-widget');
+            const taskbarApp = document.querySelector('.taskbar-app[data-app="clock"]');
+            
+            if (clockWidget.style.display === 'none') {
+                clockWidget.style.display = 'block';
+                taskbarApp.classList.add('active');
+            } else {
+                clockWidget.style.display = 'none';
+                taskbarApp.classList.remove('active');
+            }
+        }
+             
+            
+            
+       
+    </script>
+</body>
+</html>
