@@ -170,10 +170,6 @@ def chat():
     except Exception as e:
         error_msg = str(e)
         print(f"\nОшибка: {error_msg}")
-        if hasattr(e, 'response'):
-            print("Response Status:", e.response.status_code)
-            print("Response Headers:", dict(e.response.headers))
-            print("Response Body:", e.response.text)
         return jsonify({'error': error_msg}), 500
 
 @app.route('/api/clear-history', methods=['POST'])
@@ -231,6 +227,34 @@ def text_to_speech():
         print(f"TTS error: {str(e)}")
         return jsonify({'error': f'Ошибка синтеза речи: {str(e)}'}), 500
 
+@app.route('/api/recognize', methods=['POST'])
+def recognize():
+    try:
+        data = request.get_json()
+        audio_data = data.get('audio', '')
+
+        if not audio_data:
+            return jsonify({'error': 'Пустые аудиоданные'}), 400
+
+        # Здесь должна быть логика для распознавания речи из аудиоданных
+        # Например, использование стороннего API для распознавания
+
+        recognized_text = "распознанный текст"  # Замените на реальный результат
+
+        recognition_history.append(recognized_text)
+        return jsonify({'text': recognized_text})
+
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Ошибка распознавания: {error_msg}")
+        return jsonify({'error': error_msg}), 500
+
+@app.route('/api/clear-recognition-history', methods=['POST'])
+def clear_recognition_history():
+    global recognition_history
+    recognition_history = []
+    return jsonify({'status': 'ok'})
+
 if __name__ == '__main__':
     def find_free_port():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -245,4 +269,3 @@ if __name__ == '__main__':
     except OSError:
         port = find_free_port()
         print(f"Port 5001 is busy, using port {port} instead")
-        app.run(host='0.0.0.0', port=port, debug=True)
