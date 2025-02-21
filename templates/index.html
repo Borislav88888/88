@@ -1527,42 +1527,6 @@
             background: rgba(255,255,255,0.1);
             border-radius: 0 0 15px 0;
         }
-
-        .toggle-container {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 10px;
-        }
-
-        .toggle-visibility {
-            background: none;
-            border: none;
-            font-size: 20px;
-            padding: 4px;
-            cursor: pointer;
-            color: #2c3e50;
-            min-width: auto;
-            transition: transform 0.2s;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.05);
-        }
-
-        .toggle-visibility:hover {
-            transform: scale(1.1);
-            background: rgba(0,0,0,0.1);
-        }
-
-        .speech-container.collapsed .chat-panel,
-        .speech-container.collapsed .commands-panel,
-        .speech-container.collapsed textarea,
-        .speech-container.collapsed .status {
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -1660,11 +1624,7 @@
                 </div>
                 <h1>Распознаватель (синхронный)</h1>
                 <div class="chat-panel">
-                    <button onclick="toggleRecognition()" class="send-button" id="recordButton">
-                        🎤
-                    </button>
                     <button onclick="clearRecognition()">🗑️ Очистить</button>
-                    <div class="mic-indicator" id="micIndicator"></div>
                 </div>
                 <textarea id="output2" placeholder="Здесь появится распознанный текст..." readonly></textarea>
                 <div class="status" id="status2"></div>
@@ -2033,133 +1993,141 @@
         }
 
         // Speech Recognition
-        // Обновляем инициализацию распознавания речи
-function initRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-        showNotification('Ошибка', 'Ваш браузер не поддерживает распознавание речи. Используйте Chrome.', 'error');
-        return;
-    }
+        function initRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('Ваш браузер не поддерживает распознавание речи. Используйте Chrome.');
+                return;
+            }
 
-    // Проверяем доступ к микрофону
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            stream.getTracks().forEach(track => track.stop());
-            setupRecognition(SpeechRecognition);
-        })
-        .catch(err => {
-            showNotification('Ошибка', 'Нет доступа к микрофону: ' + err.message, 'error');
-            console.error('Ошибка микрофона:', err);
-        });
-}
+            // Проверяем разрешение на использование микрофона
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function(stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    setupRecognition();
+                })
+                .catch(function(err) {
+                    alert('Ошибка доступа к микрофону: ' + err.message);
+                    console.error('Ошибка микрофона:', err);
+                });
+        }
 
-function setupRecognition(SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.continuous = true;
+        function setupRecognition() {
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = true; // Меняем на true для непрерывного распознавания
     recognition.interimResults = true;
     recognition.lang = 'ru-RU';
-    recognition.maxAlternatives = 1;
-
+    
     recognition.onstart = () => {
-        isRecognizing = true;
         updateStatus('Говорите...');
-        document.querySelector('.mic-indicator').classList.add('active');
         const recordBtn = document.getElementById('recordButton');
         recordBtn.textContent = '🛑';
-        recordBtn.classList.add('active');
+        recordBtn.parentElement.classList.add('active');
+        isRecognizing = true;
+        finalTranscript = ''; // Очищаем при старте
     };
-
+    
     recognition.onend = () => {
-        if (isRecognizing) {
-            // Автоматически перезапускаем, если остановка не была намеренной
-            try {
-                recognition.start();
-            } catch (e) {
-                stopRecognition();
-            }
-        } else {
-            stopRecognition();
+        updateStatus('Распознавание остановлено');
+        const recordBtn = document.getElementById('recordButton');
+        recordBtn.textContent = '🎤';
+        recordBtn.parentElement.classList.remove('active');
+        isRecognizing = false;
+        
+        // Возобновляем прослушивание ключевого слова после окончания распознавания
+        if (wakeWord) {
+            setTimeout(() => {
+                startWakeWordRecognition();
+                updateStatus(`Ожидаю команду: ${wakeWord}`);
+            }, 100);
         }
     };
-
+    
     recognition.onerror = (event) => {
-        console.error('Ошибка распознавания:', event.error);
-        switch (event.error) {
-            case 'no-speech':
-                // Игнорируем эту ошибку, так как она часто возникает
-                break;
-            case 'network':
-                showNotification('Ошибка', 'Проверьте подключение к интернету', 'error');
-                stopRecognition();
-                break;
-            case 'not-allowed':
-            case 'permission-denied':
-                showNotification('Ошибка', 'Нет доступа к микрофону', 'error');
-                stopRecognition();
-                break;
-            default:
-                showNotification('Ошибка', `Ошибка распознавания: ${event.error}`, 'error');
-                stopRecognition();
+        console.error('Recognition error:', event.error);
+        if (event.error === 'no-speech') {
+            updateStatus('Не слышу речи. Проверьте микрофон.');
+            return;
         }
+        if (event.error === 'network') {
+            updateStatus('Проверьте подключение к интернету');
+            return;
+        }
+        updateStatus('Ошибка: ' + event.error);
     };
-
+    
     recognition.onresult = (event) => {
         let interimTranscript = '';
-        let finalTranscript = '';
-
+        
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
+            
             if (event.results[i].isFinal) {
                 finalTranscript += transcript + ' ';
-                processVoiceCommand(transcript.trim().toLowerCase());
+                checkCommands(transcript);
+                sendVoiceMessage(transcript);
             } else {
                 interimTranscript = transcript;
             }
         }
-
-        const output = document.getElementById('output2');
-        output.value = finalTranscript + interimTranscript;
-        output.scrollTop = output.scrollHeight;
+        
+        // Обновляем текст в поле вывода
+        const output2 = document.getElementById('output2');
+        output2.value = finalTranscript + interimTranscript;
+        output2.scrollTop = output2.scrollHeight;
     };
+
+    return recognition;
 }
 
-function toggleRecognition() {
-    if (!recognition) {
-        initRecognition();
-        return;
-    }
-
-    if (!isRecognizing) {
-        try {
-            recognition.start();
-            showNotification('Распознавание', 'Распознавание речи запущено', 'info');
-        } catch (e) {
-            console.error('Ошибка запуска:', e);
-            showNotification('Ошибка', 'Не удалось запустить распознавание', 'error');
-            stopRecognition();
+        // Добавляем функцию для полной остановки распознавания
+        function stopRecognition() {
+            const recordBtn = document.getElementById('recordButton');
+            recordBtn.textContent = '🎤';
+            recordBtn.parentElement.classList.remove('active');
+            isRecognizing = false;
+            updateStatus('Распознавание остановлено');
         }
-    } else {
-        stopRecognition();
-    }
-}
 
-function stopRecognition() {
-    if (recognition) {
-        try {
-            recognition.stop();
-        } catch (e) {
-            console.error('Ошибка остановки:', e);
-        }
-    }
+        // Обновляем функцию переключения
     
-    isRecognizing = false;
-    document.querySelector('.mic-indicator').classList.remove('active');
-    const recordBtn = document.getElementById('recordButton');
-    recordBtn.textContent = '🎤';
-    recordBtn.classList.remove('active');
-    updateStatus('Распознавание остановлено');
-}
+
+    function toggleRecognition() {
+        if (!recognition) {
+            initRecognition();
+        }
+        
+        if (!recognition) return;
+        
+        if (!isRecognizing) {
+            try {
+                stopWakeWordRecognition();
+                recognition.start();
+            } catch (e) {
+                console.error('Start error:', e);
+                updateStatus('Ошибка запуска');
+            }
+        } else {
+            try {
+                isRecognizing = false;
+                recognition.stop();
+            } catch (e) {
+                console.error('Stop error:', e);
+                updateStatus('Ошибка остановки');
+            }
+        }
+    }
+
+        function updateStatus(message) {
+            document.getElementById('status1').textContent = message;
+            document.getElementById('status2').textContent = message;
+            document.getElementById('chatStatus').textContent = message;
+        }
+
+        function clearRecognition() {
+            finalTranscript = '';
+            document.getElementById('output2').value = '';
+            updateStatus('Распознавание очищено');
+        }
 
         // Функции для работы с GigaChat
         async function sendMessage() {
@@ -2664,41 +2632,42 @@ function stopRecognition() {
 
         function toggleContainer(button) {
             const container = button.closest('.speech-container');
-            if (!container) return;
-            
-            container.classList.toggle('collapsed');
+            container.classList.toggle('hidden');
             
             // Обновляем иконку кнопки
-            if (container.classList.contains('collapsed')) {
-                button.textContent = '📋';
-            } else {
-                button.textContent = '🔄';
-            }
+            button.textContent = container.classList.contains('hidden') ? '👁️' : '🔄';
             
-            // Обновляем состояние на панели задач
-            const appId = container.getAttribute('data-app');
-            if (appId) {
-                const taskbarApp = document.querySelector(`.taskbar-app[data-app="${appId}"]`);
-                if (taskbarApp) {
-                    taskbarApp.classList.toggle('active', !container.classList.contains('collapsed'));
-                }
-            }
+            // Обновляем размеры контейнеров
+            updateContainersSize();
+            
+            // Обновляем состояние кнопок на панели задач
+            updateTaskbarState();
         }
 
         function toggleApp(appId) {
             const container = document.querySelector(`.speech-container[data-app="${appId}"]`);
             const taskbarApp = document.querySelector(`.taskbar-app[data-app="${appId}"]`);
             
-            if (!container) return;
-            
-            // Переключаем видимость контейнера
-            container.classList.toggle('hidden');
-            
-            // Обновляем состояние кнопки на панели задач
             if (container.classList.contains('hidden')) {
-                taskbarApp.classList.remove('active');
-            } else {
+                container.classList.remove('hidden');
                 taskbarApp.classList.add('active');
+            } else {
+                container.classList.add('hidden');
+                taskbarApp.classList.remove('active');
+            }
+            
+            // Обновляем размеры контейнеров
+            updateContainersSize();
+        }
+
+        function updateContainersSize() {
+            const visibleContainers = document.querySelectorAll('.speech-container:not(.hidden)');
+            const containerCount = visibleContainers.length;
+            
+            // Обновляем grid-template-columns в зависимости от количества видимых контейнеров
+            const container = document.querySelector('.recognizers-container');
+            if (containerCount > 0) {
+                container.style.gridTemplateColumns = `repeat(${containerCount}, 1fr)`;
             }
         }
 
@@ -3299,8 +3268,7 @@ function stopRecognition() {
 
         // Обновляем инициализацию в DOMContentLoaded
         document.addEventListener('DOMContentLoaded', () => {
-            initRecognition();
-        });
+            // ... существующий код ...
             
             // Инициализируем часы
             const clockWidget = document.querySelector('.clock-widget');
