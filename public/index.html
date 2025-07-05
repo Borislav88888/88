@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат-приложение</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Экран входа -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="login-card">
+                <h1 class="login-title">Добро пожаловать в чат</h1>
+                <p class="login-subtitle">Введите ваше имя, чтобы присоединиться</p>
+                <form id="login-form">
+                    <input 
+                        type="text" 
+                        id="username-input" 
+                        placeholder="Ваше имя" 
+                        required 
+                        maxlength="20"
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="btn-primary">Войти в чат</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Экран чата -->
+    <div id="chat-screen" class="screen">
+        <div class="chat-container">
+            <!-- Боковая панель -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Онлайн пользователи</h3>
+                    <span id="online-count" class="online-count">0</span>
+                </div>
+                <div id="users-list" class="users-list"></div>
+                <div class="sidebar-footer">
+                    <button id="logout-btn" class="btn-logout">Выйти</button>
+                </div>
+            </aside>
+
+            <!-- Основная область чата -->
+            <main class="chat-main">
+                <div class="chat-header">
+                    <h2>Общий чат</h2>
+                    <button id="toggle-sidebar" class="btn-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div id="messages-container" class="messages-container">
+                    <!-- Сообщения будут добавляться сюда -->
+                </div>
+
+                <div id="typing-indicator" class="typing-indicator"></div>
+
+                <form id="message-form" class="message-form">
+                    <input 
+                        type="text" 
+                        id="message-input" 
+                        placeholder="Введите сообщение..." 
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="btn-send">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M2 10L17 2L13 18L11 11L2 10Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </form>
+            </main>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
